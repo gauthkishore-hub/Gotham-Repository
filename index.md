@@ -3,9 +3,7 @@ Replace this text with a brief description (2-3 sentences) of your project. This
 
 You should comment out all portions of your portfolio that you have not completed yet, as well as any instructions:
 ```HTML 
-<!--- This is an HTML comment in Markdown -->
-<!--- Anything between these symbols will not render on the published site -->
-```
+
 
 | **Engineer** | **School** | **Area of Interest** | **Grade** |
 |:--:|:--:|:--:|:--:|
@@ -71,6 +69,7 @@ void loop() {
 
 }
 ```
+https://www.youtube.com/watch?v=JIqICeoYuvM
 
 # Bill of Materials
 Here's where you'll list the parts in your project. To add more rows, just copy and paste the example rows below.
