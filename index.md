@@ -1,5 +1,6 @@
 # Nvidia Jetson Orin Nano jetracer
 
+#Milestone 2: Calibration of Hardware driver based testing
 
 # Milestone 1: Assembly of the Hardware – Creating the JetRacer Platform
 <iframe width="1285" height="723" src="https://www.youtube.com/embed/wCwTizB-BSY" title="Gautham N. K. Milestone 1" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
@@ -59,6 +60,9 @@ This milestone is the foundation for the future work — nothing further can be 
 # Schematics 
 
 ![Schematic](Jetracerschematicupdated.png)
+
+# Power Architecture Flow Chart
+![Flow Chart](jetracer_power_architecture.png)
 
 # Code
 Here's where you'll put your code. The syntax below places it into a block of code. Follow the guide [here]([url](https://www.markdownguide.org/extended-syntax/)) to learn how to customize it to your project needs. 
