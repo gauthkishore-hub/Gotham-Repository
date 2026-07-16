@@ -100,7 +100,7 @@ Testing computer vision models — testing different computer vision models to f
 This milestone is the foundation for the future work — nothing further can be done without the properly working hardware and the safety-first control switch.
 
 # Schematics 
-Here's where you'll put images of your schematics. [Tinkercad](https://www.tinkercad.com/blog/official-guide-to-tinkercad-circuits) and [Fritzing](https://fritzing.org/learning/) are both great resoruces to create professional schematic diagrams, though BSE recommends Tinkercad becuase it can be done easily and for free in the browser. 
+
 ![Schematic](Jetracerschematicupdated.png)
 
 # Code
