@@ -64,6 +64,9 @@ This milestone is the foundation for the future work — nothing further can be 
 # Power Architecture Flow Chart
 ![Flow Chart](jetracer_power_architecture.png)
 
+# Signal flow Flow Chart
+![Flow Chart](jetracer_component_interaction.png)
+
 # Code
 Here's where you'll put your code. The syntax below places it into a block of code. Follow the guide [here]([url](https://www.markdownguide.org/extended-syntax/)) to learn how to customize it to your project needs. 
 
