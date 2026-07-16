@@ -1,13 +1,7 @@
 # Nvidia Jetson Orin Nano jetracer
 
 
-# First Milestone
-
-
-<iframe width="1285" height="723" src="https://www.youtube.com/embed/wCwTizB-BSY" title="Gautham N. K. Milestone 1" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-
-
-Milestone 1: Assembly of the Hardware – Creating the JetRacer Platform
+# Milestone 1: Assembly of the Hardware – Creating the JetRacer Platform
 
 Summary
 
