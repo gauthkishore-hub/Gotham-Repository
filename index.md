@@ -3,11 +3,11 @@
 
 # Milestone 1: Assembly of the Hardware – Creating the JetRacer Platform
 
-Summary
+## Summary
 
 In this milestone, I managed to assemble the whole physical platform of a completely autonomous JetRacer which is an RC car platform reconfigured to become an edge AI prototyping platform that utilizes an NVIDIA Jetson Nano board. The final product will be able to perceive the track via a camera and make decisions on how to control steering and acceleration based on a computer vision model running on this platform itself but will remain under my manual control at any point I desire.
 
-What I Created
+## What I Created
 
 To create a JetRacer platform, I took apart an ordinary RC car chassis in order to find out the main electronic elements:
 
@@ -18,7 +18,7 @@ The radio receiver – the electronic board that gets commands from an RC remote
 The Radio Receiver – the part of the system that receives data from a radio remote controlled by a person, enabling a person to control the car manually via the remote over radio waves, similar to an ordinary RC car.
 
 
-Next I performed the following steps:
+## Next I performed the following steps:
 
 
 Added the multiplexer (Mux) into the data line. The Mux acts as a switch that selects one out of multiple signals and routes it to the output. In this case, the Mux is between the RC receiver, the Jetson Nano and the ESC/servo, allowing to switch a switch that will control whether the AI or a human via the remote is in charge. This is the fundamental safety element of the entire project – when the autonomous system fails in any way, it can be overridden instantly by the manual system.
@@ -27,7 +27,7 @@ This hardware setup forms the fundamental data control loop of the entire projec
 
 Camera detects the line → Jetson Nano processes the line and makes steering/ throttle decisions → mux sends those decisions to the servo and ESC → car drives with the human being able to take control of anything by using the mux.
 
-The Technical Challenge: QSPI Firmware
+## The Technical Challenge: QSPI Firmware
 
 The toughest aspect of this phase didn't lie in the wiring but in making sure the Jetson Nano could boot up properly in the first place.
 
@@ -44,7 +44,7 @@ Boot from the new QSPI firmware successfully before the operating system from th
 
 The updated QSPI firmware resolved the booting problems, and now the system runs perfectly fine.
 
-Next Steps
+## Next Steps
 
 Having got my hardware assembled and my Jetson Nano working, the next steps are to achieve:
 
