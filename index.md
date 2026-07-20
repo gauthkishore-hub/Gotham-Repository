@@ -1,6 +1,19 @@
 # Nvidia Jetson Orin Nano jetracer
 
-#Milestone 2: Calibration of Hardware driver based testing
+ # Milestone 2: Hardware Validation & PWM Calibration
+ <iframe width="989" height="556" src="https://www.youtube.com/embed/oSRA-IN0WpY" title="Gautham N. K. Milestone 2" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
+ ## Calibration and Hardware Verification
+
+This step is the essential link between the construction of the physical parts of the car and the software which controls it in the autonomous vehicle system architecture. With a combination of the Jetson Orin Nano along with the PCA9685 PWM Driver and Pololu Servo Multiplexer, the objective was to set up successful communication between the RC receiver, the electronics, steering servo and ESC. Calibration makes sure that the PWM signals from the software translate into the right hardware output before computer vision.
+
+## Diagnosing the Throttle Anomaly 
+
+As part of the early hardware testing phase, an important problem was identified: steering signals operated the servo properly but the motor did not respond to throttle signals even though it seemed like the ESC was receiving power. In order to identify the exact cause of the problem, a pin-swapping troubleshooting technique was used on the PCA9685 PWM channels – exchanging the pins of the steering and throttle signal connections proved that the PWM signals were working properly on all channels, ruling out any problems with the control board and remote control. The problem was then traced down to the actual mechanical drive. As a result of a thorough analysis of the wiring, two interrelated faults in the connection between the ESC and the motor were discovered: a bad cold solder joint where there was not enough tin flow resulting in a poor conductivity and heat shrink tubing wrapped too tightly around the connector that physically compressed the contacts and limited the current flow. While during bench testing the connection was fine, under the motor load the voltage drop across the connection was enough to prevent the ESC from functioning.
+
+## PWM Calibration via Jupyter
+
+Since the physical configuration of the robot has been successfully verified, the robot underwent calibration using the Jupyter Notebooks interacting with the Orin Nano in Wi-Fi mode. The precise values of pulse widths for the actuator channels have been determined. The steering calibration was performed by determining the optimal deflection angle and the center point offset in order to make sure that the minimum possible radius of curvature could be achieved for tight indoor tracks while avoiding any jamming of the wheels in full lock. Throttle calibration determined the following thresholds: the neutral deadband during which the ESC will stay idle without moving, the minimal pulse width needed for overcoming drivetrain friction, and the maximal acceleration without causing the wheels to slip on the indoor surface.
 
 # Milestone 1: Assembly of the Hardware – Creating the JetRacer Platform
 <iframe width="1285" height="723" src="https://www.youtube.com/embed/wCwTizB-BSY" title="Gautham N. K. Milestone 1" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
