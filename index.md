@@ -9,7 +9,7 @@ I created an autonomous AI race car by attaching the NVIDIA Jetson Orin Nano, wh
 
 
  # Milestone 2: Hardware Validation & PWM Calibration
- <iframe width="560" height="315" src="https://www.youtube.com/embed/oSRA-IN0WpY" title="Gautham N. K. Milestone 2" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+ <iframe width="985" height="554" src="https://www.youtube.com/embed/oSRA-IN0WpY" title="Gautham N. K. Milestone 2" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
  ## Calibration and Hardware Verification
 
@@ -90,7 +90,7 @@ This milestone is the foundation for the future work — nothing further can be 
 # Code
 Here's where you'll put your code. The syntax below places it into a block of code. Follow the guide [here]([url](https://www.markdownguide.org/extended-syntax/)) to learn how to customize it to your project needs. 
 
-```c++
+```python
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
