@@ -71,7 +71,7 @@ Testing computer vision models — testing different computer vision models to f
 This milestone is the foundation for the future work — nothing further can be done without the properly working hardware and the safety-first control switch.
 
 # Wiring Diagram 
-![Wiring Diagram](Jetracer_Wiring_Diagram.png)
+![Wiring Diagram](Jetracerschematic_(1).jpg)
 
 # Power Architecture Flow Chart
 ![Flow Chart](jetracer_power_architecture.png)
