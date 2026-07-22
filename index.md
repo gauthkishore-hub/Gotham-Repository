@@ -5,7 +5,7 @@ I created an autonomous AI race car by attaching the NVIDIA Jetson Orin Nano, wh
 
 | **Engineer** | **School** | **Area of Interest** | **Grade** | 
 |:--:|:--:|:--:|:--:|
-| Gautham N.K | Bellarmine College Prepratory | Mechanical Engineering | Incoming Junior |
+| Gautham N.K | Bellarmine College Prepratory | Mechanical Engineering | Incoming Junior
 
 
 # Milestone 2: Hardware Validation & PWM Calibration
