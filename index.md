@@ -2,9 +2,9 @@
 I created an autonomous AI race car by attaching the NVIDIA Jetson Orin Nano, which happens to be one of the most powerful edge AI computers developed by NVIDIA, to the chassis of a 1/18 scale LaTrax Rally RC car by fabricating my own plastic mounting plate to attach all necessary electronic components, including the computer board, PCA9685 servo driver, and signal multiplexer, without compromising the integrity of the chassis. In terms of hardware development, the greatest problem encountered was with drivetrain development when a cold solder joint, as well as overapplication of heat-shrink tubing to the bullet connectors between the ESC and the motor, was preventing the transfer of electricity due to load, as determined through a careful process of testing with pin swapping on each PWM. The greatest lesson learned from developing a project on such complex systems level is that true engineering is not about programming your code from scratch but about understanding the architecture of an existing system and determining how to fix it on nonstandard hardware.
 
 
-| **Engineer** | **School** | **Area of Interest** | **Grade** |
+| **Engineer** | **School** | **Area of Interest** | **Grade** | 
 |:--:|:--:|:--:|:--:|
-| Gautham N.K | Bellarmine College Prepratory | Mechanical Engineering | Incoming Junior
+| Gautham N.K | Bellarmine College Prepratory | Mechanical Engineering | Incoming Junior |
 
 
 
