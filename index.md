@@ -10,8 +10,10 @@ I created an autonomous AI race car by attaching the NVIDIA Jetson Orin Nano, wh
 
 
  # Milestone 2: Hardware Validation & PWM Calibration
+
  
  <iframe width="985" height="554" src="https://www.youtube.com/embed/oSRA-IN0WpY" title="Gautham N. K. Milestone 2" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
 
  ## Calibration and Hardware Verification
 
