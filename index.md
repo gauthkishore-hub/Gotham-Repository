@@ -83,7 +83,8 @@ This milestone is the foundation for the future work — nothing further can be 
 ![Wiring Diagram](CustomWiringDiagram.jpg)
 
 # Power Architecture Flow Chart
-![Flow Chart](jetracer_power_architecture.png)
+![Flow Chart](PowerArchitecture.png
+)
 
 # Signal flow Flow Chart
 ![Flow Chart](jetracer_component_interaction.png)
