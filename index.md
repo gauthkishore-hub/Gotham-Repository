@@ -87,7 +87,7 @@ This milestone is the foundation for the future work — nothing further can be 
 )
 
 # Signal flow Flow Chart
-![Flow Chart](jetracer_component_interaction.png)
+![Flow Chart](SignalFlow.html)
 
 # Code
 Here's where you'll put your code. The syntax below places it into a block of code. Follow the guide [here]([url](https://www.markdownguide.org/extended-syntax/)) to learn how to customize it to your project needs. 
