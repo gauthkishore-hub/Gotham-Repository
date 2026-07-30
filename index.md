@@ -7,6 +7,91 @@ I created an autonomous AI race car by attaching the NVIDIA Jetson Orin Nano, wh
 |:--:|:--:|:--:|:--:|
 | Gautham N.K | Bellarmine College Prepratory | Mechanical Engineering | Incoming Junior
 
+# Milestone 3: Autonomous Navigation & Neural Network Integration
+
+## Project Overview
+
+For Milestone 3, the project transitions into full autonomous navigation using an onboard camera, an Nvidia Jetson compute platform, and a Convolutional Neural Network (CNN). The vehicle operates in two distinct modes:
+
+1. **Autonomous Mode:** The front-facing camera acts as the visual sensor, continuously streaming track frames into the Nvidia Jetson ("the brain"). The Jetson runs a trained CNN regression model to process image data in real time, determining spatial trajectories and outputting steering targets.
+2. **Manual Driver Mode:** A 2.4 GHz radio transmitter communicates with an onboard receiver. A hardware multiplexer routes throttle and steering commands dynamically — directing steering signals to the servo motor and throttle signals to the Electronic Speed Controller (ESC).
+
+---
+
+## Convolutional Neural Network (CNN) Deep Dive
+
+### 1. Why Regression Instead of Classification
+
+Most introductory CNN projects are classifiers — "is this a stop sign or a light?" — where the output is a discrete label pulled from a fixed set of categories via a softmax layer. Our navigation problem doesn't fit that mold: there's no finite set of "correct" track positions, only a continuous 2D space of possible target points on the image plane. So instead of a softmax over categories, the final layer is a **linear regression head** that outputs continuous (x, y) coordinates — normalized to a -1 to 1 range so the model's output is independent of the camera's native resolution. This is the same architectural family used in NVIDIA's JetRacer/JetBot road-following examples, and it's what lets a single forward pass through the network double as a steering command generator rather than a label picker.
+
+### 2. Input Representation
+
+Each camera frame is ingested as a 3D tensor: **Width × Height × Color Channels** (typically resized to 224×224×3 to match the input dimensions expected by pretrained ImageNet backbones like ResNet18). Before entering the network, each frame is normalized per-channel (mean/std matching the pretrained backbone's original training distribution) so that pixel intensity fluctuations from track lighting don't dominate over actual track geometry.
+
+### 3. Feature Extraction — Convolutional Layers
+
+The convolutional layers are the model's "eyes." Each layer slides a small matrix filter (kernel) — commonly 3×3 or 7×7 — across the image, computing a dot product at every spatial position. Early layers in the network tend to pick up low-level primitives: edges, color boundary lines, and contrast gradients (exactly the kind of thing that distinguishes track surface from track margin). As frames pass through deeper layers, the kernels start responding to more abstract, composite patterns — curvature of the track boundary, the vanishing point of a straightaway, or the visual "wedge" shape formed by two converging lane edges. Each convolutional layer also increases the number of channels (feature maps) while the spatial resolution shrinks, trading raw pixel detail for a richer description of *what* is in a given region.
+
+### 4. Non-Linearity — ReLU
+
+Without a non-linear activation function, stacking convolutional layers would collapse mathematically into a single linear operation, no matter how many layers you add — the network would only be capable of learning simple linear relationships between input pixels and output coordinates. The Rectified Linear Unit, `f(x) = max(0, x)`, is inserted after each convolution specifically to break that linearity. It's computationally cheap (just a threshold at zero) and it's what allows the network to model the actual non-linear geometry of a curving track — a relationship that a purely linear model could never approximate no matter how much training data it saw.
+
+### 5. Pooling — Downsampling for Spatial Invariance
+
+Pooling layers (typically max-pooling) reduce the spatial dimensions of each feature map, usually by taking the maximum value within a small window (e.g., 2×2) and discarding the rest. This does two things for us:
+
+- **Reduces computational load**, which matters directly for real-time inference speed on the Jetson — fewer pixels to process per layer means a faster forward pass and lower steering latency.
+- **Builds tolerance to small positional shifts.** Because the chassis vibrates and bounces slightly as it drives, the exact pixel location of a track edge shifts frame to frame even when the vehicle's actual position hasn't meaningfully changed. Pooling makes the network's output stable against these small physical jitters instead of over-reacting to them.
+
+### 6. Dense / Output Layer
+
+After the convolutional and pooling stages, the resulting feature maps are flattened into a single vector and passed through one or more fully connected (dense) layers, terminating in a final linear layer with exactly 2 outputs (or `2 × number of target categories`, if predicting multiple points). Those two numbers are interpreted directly as the (x, y) coordinates of the target point, rendered visually during testing as a target dot overlaid on the live camera feed. The steering controller then computes the horizontal delta between image center and that target x-coordinate, scales it by a steering gain, and issues the corresponding servo command — closing the loop between "what the camera sees" and "how the wheels turn."
+
+### 7. Training Pipeline
+
+- **Loss function:** Mean Squared Error (MSE) between the predicted (x, y) and the human-labeled ground truth point for each training frame. MSE is a natural fit for regression because it penalizes large deviations more heavily than small ones, pushing the model toward tighter tracking rather than "roughly close" predictions.
+- **Optimizer:** Adam, chosen for its adaptive per-parameter learning rate, which tends to converge faster than plain SGD on small, custom datasets like ours.
+- **Transfer learning:** Rather than training a CNN from scratch, we start from a ResNet18 backbone pretrained on ImageNet and replace only its final fully connected layer with our 2-output regression head. This lets the network reuse millions of images' worth of general-purpose edge/shape/texture knowledge, and only needs to learn the track-specific mapping — a major reason a dataset of only ~150 images was enough to get a usable initial model.
+- **Data augmentation:** Random horizontal flips (with the corresponding x-label negated) and color jitter (brightness/contrast/saturation) were applied during training to artificially expand the effective dataset size and make the model more robust to lighting changes across different runs on the same track.
+- **Iterative expansion:** Initial training runs (~150 images) produced steering predictions that settled into a rough but noisy target vector, with visible tracking drift in areas the dataset under-represented (sharp corners, shadowed sections). Additional targeted data collection in those specific failure regions — rather than blindly adding more random frames — was the more effective lever for reducing drift, since it directly patched the gaps the model was weakest on.
+
+### 8. Real-Time Inference Constraints
+
+Unlike a lot of CNN applications where inference can run offline, our model has to produce a new steering target on every incoming frame while the vehicle is moving — meaning the whole pipeline (frame capture → preprocessing → forward pass → steering computation → servo command) has to complete well within the camera's frame interval. This is part of why the Jetson platform (with onboard GPU acceleration) and a comparatively lightweight backbone like ResNet18 were chosen over deeper, more accurate but slower architectures — on this project, inference latency directly translates into how sharply the car can react to sudden track curvature.
+
+---
+
+## Hardware Modifications & Iterations
+
+- **Battery & Power Management:** Remounted peripheral hardware to make room for a dedicated 3S LiPo battery, ensuring consistent voltage supply to the Nvidia Jetson during heavy computational loads.
+- **Traction & Mechanical Tuning:** Upgraded to high-contact foam tires. Preventing mechanical wheel slip eliminates noisy displacement data, ensuring consistent correlation between visual frame inputs and vehicle position.
+
+---
+
+## New Addition: Active Rear Wing with IMU-Based Stabilization
+
+### 1. Motivation
+
+At higher test speeds, the chassis experiences small pitch and roll oscillations from track imperfections, cornering load transfer, and motor vibration — all of which subtly change how much the camera's field of view "bounces" frame to frame, and can also unsettle rear traction going into corners. To address this, we're adding a **servo-actuated active rear wing** that adjusts its angle of attack in real time based on the vehicle's measured dynamics, rather than sitting at a fixed angle like a static wing. The goal is added rear-end stability under braking and cornering load, using the same kind of active-aero concept found in full-scale race cars, scaled down to our platform.
+
+### 2. Sensing: Accelerometer / IMU Placement
+
+A small IMU (accelerometer + gyroscope) is mounted near the vehicle's center of mass, oriented to capture:
+
+- **Longitudinal acceleration** — braking and throttle events, which the wing can respond to by increasing angle under hard braking (added rear downforce/drag) and flattening under acceleration (reduced drag).
+- **Lateral acceleration** — cornering load, letting the wing add a modest angle increase through hard corners for rear grip.
+
+### 3. The Core Problem: Raw IMU Data Is Noisy
+
+Raw accelerometer output is inherently jittery — vibration from the motor, chassis flex, and the foam tires' own compliance all inject high-frequency noise into the signal that has nothing to do with the vehicle's actual dynamic state. If the wing's servo were commanded directly off raw accelerometer readings, it would chatter constantly — reacting to noise spikes rather than genuine acceleration events — leading to premature servo wear and an unstable, twitchy wing that could do more harm than good aerodynamically.
+
+### 4. Noise Reduction Strategy
+
+Two complementary techniques address this:
+
+**a) Low-pass filtering.** Before any control decision is made, raw accelerometer samples pass through a low-pass filter (a simple moving average or an exponential/complementary filter blended with the gyroscope), attenuating the high-frequency vibration noise while preserving the slower, real dynamic trends we actually care about (a genuine braking or cornering event happens over hundreds of milliseconds, not the sub-millisecond timescale of vibration noise).
+
+**b) Hysteresis on the control decision.** Filtering alone doesn't fully solve the problem — a signal that's sitting right near a threshold can still flicker back and forth across it, causing the servo to twitch between two wing angles. Hysteresis solves this by using **two separate thresholds instead of one**: the wing only moves to a "deployed" angle once acceleration exceeds an upper threshold, and only returns to neutral once it drops below a distinctly lower threshold. That dead-band gap between the two thresholds means a signal hovering near a single trigger point can't cause rapid back-and-forth switching — it has to clearly cross into the new state and clearly leave the old one before the wing responds again. In practice this looks like:
 
 # Milestone 2: Hardware Validation & PWM Calibration
  <iframe width="985" height="554" src="https://www.youtube.com/embed/oSRA-IN0WpY" title="Gautham N. K. Milestone 2" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
