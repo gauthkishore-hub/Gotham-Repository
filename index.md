@@ -179,6 +179,8 @@ This milestone is the foundation for the future work — nothing further can be 
 
 # Different applicable notebooks for training
 
+## Expandned CNN Pipeline
+
 ##  Basic Motion Notebook
 Hardware initialization with steering and throttle calibration
 
