@@ -8,6 +8,7 @@ I created an autonomous AI race car by attaching the NVIDIA Jetson Orin Nano, wh
 | Gautham N.K | Bellarmine College Prepratory | Mechanical Engineering | Incoming Junior
 
 # Milestone 3: Autonomous Navigation & Neural Network Integration
+<iframe width="1059" height="595" src="https://www.youtube.com/embed/OESsFsIwddU" title="Gautham N. K. Milestone 3" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
 ## Project Overview
 
