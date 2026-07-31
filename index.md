@@ -180,6 +180,7 @@ This milestone is the foundation for the future work — nothing further can be 
 
 ## Road Following Notebook
 
+```python
 # ==============================================================================
 # Basic Motion Control Script (basic_motion.py)
 # Source: NVIDIA-AI-IOT/jetracer
@@ -253,8 +254,6 @@ throttle_link = traitlets.dlink((controller.axes[1], 'value'), (car, 'throttle')
 
 # Optional: Invert throttle or apply scaling transformation if necessary
 # throttle_link = traitlets.dlink((controller.axes[1], 'value'), (car, 'throttle'), transform=lambda x: -x)
-
-## Interactive regression Notebook
 
 ## Computer Vision & Interactive Regression Code
 
