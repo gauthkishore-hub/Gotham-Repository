@@ -254,6 +254,7 @@ throttle_link = traitlets.dlink((controller.axes[1], 'value'), (car, 'throttle')
 
 # Optional: Invert throttle or apply scaling transformation if necessary
 # throttle_link = traitlets.dlink((controller.axes[1], 'value'), (car, 'throttle'), transform=lambda x: -x)
+```
 
 ## Computer Vision & Interactive Regression Code
 
@@ -498,6 +499,7 @@ def train_eval(is_training):
         pass
         
     model = model.eval()
+```
 
 
 
