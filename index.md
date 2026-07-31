@@ -255,10 +255,12 @@ throttle_link = traitlets.dlink((controller.axes[1], 'value'), (car, 'throttle')
 # Optional: Invert throttle or apply scaling transformation if necessary
 # throttle_link = traitlets.dlink((controller.axes[1], 'value'), (car, 'throttle'), transform=lambda x: -x)
 ```
+---
 
 ## Computer Vision & Interactive Regression Code
 
 Below is the script for interactive regression dataset collection, model setup (ResNet18 backbone), live inference loop, and training interface:
+
 
 ```python
 # ==============================================================================
@@ -500,7 +502,7 @@ def train_eval(is_training):
         
     model = model.eval()
 ```
-
+---
 
 
 
