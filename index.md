@@ -178,7 +178,8 @@ This milestone is the foundation for the future work — nothing further can be 
 
 # Different applicable notebooks for training
 
-## Road Following Notebook
+##  Basic Motion Notebook
+Hardware initialization with steering and throttle calibration
 
 ```python
 # ==============================================================================
@@ -257,7 +258,7 @@ throttle_link = traitlets.dlink((controller.axes[1], 'value'), (car, 'throttle')
 ```
 ---
 
-## Computer Vision & Interactive Regression Code
+## Computer Vision & Interactive Regression Notebook
 
 Below is the script for interactive regression dataset collection, model setup (ResNet18 backbone), live inference loop, and training interface:
 
@@ -504,7 +505,7 @@ def train_eval(is_training):
 ```
 ---
 
-## Autonomous Road Following & Vision Pipeline (road_following.py)
+## Autonomous Road Following & Vision Pipeline Notebook (road_following.py)
 Implements real-time target point regression using a ResNet-18 backbone. Converts predicted steering coordinates into PWM servo commands on Jetson Orin Nano hardware.
 
 ```Python
