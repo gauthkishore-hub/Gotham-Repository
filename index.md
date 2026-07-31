@@ -510,97 +510,114 @@ Implements real-time target point regression using a ResNet-18 backbone. Convert
 
 ```Python
 import cv2
-import torchvision.transforms as transforms
-from jetcam.csi_camera import CSICamera
-# from jetcam.usb_camera import USBCamera
-
-# Initialize CSI Camera (224x224 input resolution)
-camera = CSICamera(width=224, height=224)
-camera.running = True
-
-# Preprocessing transforms matching ImageNet normalization specs
-MEAN = [0.485, 0.456, 0.406]
-STD = [0.229, 0.224, 0.225]
-
-device = torch.device('cuda')
-
-
+import ipywidgets
+import traitlets
+from ipywidgets import Layout
 import torch
-import torchvision
-
-# Load pretrained ResNet-18 architecture
-model = torchvision.models.resnet18(pretrained=True)
-
-# Modify output layer for 2 continuous values: X (steering point) and Y (distance horizon)
-model.fc = torch.nn.Linear(512, 2)
-model = model.to(device)
-
-# Load trained weight checkpoint if existing model is saved
-MODEL_PATH = 'road_following_model.pth'
-# model.load_state_dict(torch.load(MODEL_PATH))
-
-
+from torch2trt import TRTModule
 from jetracer.nvidia_racecar import NvidiaRacecar
-# from jetracer.waveshare_racecar import WaveshareRacecar
+from jetcam.csi_camera import CSICamera
+from jetcam.utils import bgr8_to_jpeg
+from utils import preprocess
 
+# 1. Load the optimized TensorRT model
+model_trt = TRTModule()
+model_trt.load_state_dict(torch.load('model_08-06_trt.pth'))
+
+# 2. Initialize racecar hardware and CSI camera
 car = NvidiaRacecar()
+camera = CSICamera(width=224, height=224, capture_fps=65)
 
-# Basic gain & calibration adjustments
-car.steering_gain = 1.0
-car.steering_offset = 0.0
-car.throttle_gain = 0.8
+# 3. Setup interactive UI widgets
+state_widget = ipywidgets.ToggleButtons(options=['On', 'Off'], description='Camera', value='On')
+prediction_widget = ipywidgets.Image(format='jpeg', width=camera.width, height=camera.height)
+live_execution_widget = ipywidgets.VBox([
+    state_widget,
+    prediction_widget
+])
 
+network_output_slider = ipywidgets.FloatSlider(
+    description='Network Output', min=-1.0, max=1.0, value=0, step=0.01, orientation='horizontal', disabled=False, layout={'width': '400px'}
+)
+steering_gain_slider = ipywidgets.FloatSlider(
+    description='Steering Gain', min=-1.0, max=1.0, value=-0.7, step=0.01, orientation='horizontal', layout={'width': '300px'}
+)
+steering_bias_slider = ipywidgets.FloatSlider(
+    description='Steering Bias', min=-0.5, max=0.5, value=0.0, step=0.01, orientation='horizontal', layout={'width': '300px'}
+)
+steering_value_slider = ipywidgets.FloatSlider(
+    description='Steering', min=-1.0, max=1.0, value=0, step=0.01, orientation='horizontal', disabled=False, layout={'width': '400px'}
+)
+throttle_slider = ipywidgets.FloatSlider(
+    description='Throttle', min=-1.0, max=1.0, value=0.15, step=0.01, orientation='vertical'
+)
 
-from jetracer.nvidia_racecar import NvidiaRacecar
-# from jetracer.waveshare_racecar import WaveshareRacecar
+# 4. Link UI controls to car hardware attributes
+steering_gain_link = traitlets.link((steering_gain_slider, 'value'), (car, 'steering_gain'))
+steering_offset_link = traitlets.link((steering_bias_slider, 'value'), (car, 'steering_offset'))
+throttle_slider_link = traitlets.link((throttle_slider, 'value'), (car, 'throttle'))
 
-car = NvidiaRacecar()
+# Display the control dashboard in Jupyter
+display(
+    ipywidgets.HBox([
+        ipywidgets.VBox([
+            network_output_slider,
+            ipywidgets.Label(value="X"),
+            steering_gain_slider,
+            ipywidgets.Label(value="+"),
+            steering_bias_slider,
+            ipywidgets.Label(value="||"),
+            steering_value_slider
+        ], layout=Layout(align_items='center')),
+        live_execution_widget,
+        throttle_slider
+    ])
+)
 
-# Basic gain & calibration adjustments
-car.steering_gain = 1.0
-car.steering_offset = 0.0
-car.throttle_gain = 0.8
-
-
-import PIL.Image
-
-def preprocess(image):
-    """Preprocesses BGR OpenCV frame into PyTorch GPU tensor."""
-    image = PIL.Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-    image = transforms.functional.to_tensor(image)
-    image.sub_(torch.tensor(MEAN)[:, None, None]).div_(torch.tensor(STD)[:, None, None])
-    return image.unsqueeze(0).to(device)
-
-def execute(change):
-    """Callback function triggered on every new camera frame."""
-    image = change['new']
-    xy = model(preprocess(image)).detach().cpu().numpy().flatten()
+# 5. Define main image callback & inference update function
+def update(change):
+    global network_output_slider, steering_gain_slider, steering_bias_slider, steering_value_slider, car, camera, prediction_widget, state_widget
     
-    x = xy[0]
-    y = xy[1]
+    new_image = change['new']
+    image = preprocess(new_image).half()
     
-    update_steering(x, y)
+    output = model_trt(image).detach().cpu().numpy().flatten()
+    
+    x = float(output[0])
+    y = float(output[1]) if len(output) > 1 else float(output[0])
+    
+    network_output_slider.value = x
+    
+    steering = x * steering_gain_slider.value + steering_bias_slider.value
+    
+    if steering < -1.0:
+        steering_value_slider.value = -1.0
+    elif steering > 1.0:
+        steering_value_slider.value = 1.0
+    else:
+        steering_value_slider.value = steering
+        
+    car.steering = steering_value_slider.value
+    
+    if state_widget.value == 'On':
+        x_pixel = int(camera.width * (x / 2.0 + 0.5))
+        y_pixel = int(camera.height * (y / 2.0 + 0.5))
+        
+        prediction = new_image.copy()
+        prediction = cv2.circle(prediction, (x_pixel, y_pixel), 8, (255, 0, 0), 3)
+        prediction_widget.value = bgr8_to_jpeg(prediction)
 
-# Attach callback function to camera stream
-camera.observe(execute, names='value')
+# Initialize camera feed update
+update({'new': camera.value})
 
+# Start camera observer loop
+camera.observe(update, names='value')
 
-import time
-
-def stop_vehicle():
-    """Unregisters camera listener and brings throttle and steering to zero."""
-    camera.unobserve(execute, names='value')
-    time.sleep(0.1)
-    car.steering = 0.0
-    car.throttle = 0.0
-
-# Call when shutting down navigation loop
-# stop_vehicle()
+# -------------------------------------------------------------
+# Note: To stop execution safely and halt motors, run this:
+# camera.unobserve(update, names='value')
+# car.steering = 0
+# car.throttle = 0
+# -------------------------------------------------------------
 ```
 ---
-
-
-
-
-
-
