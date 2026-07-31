@@ -178,6 +178,82 @@ This milestone is the foundation for the future work — nothing further can be 
 
 # Different applicable notebooks for training
 
+## Road Following Notebook
+
+# ==============================================================================
+# Basic Motion Control Script (basic_motion.py)
+# Source: NVIDIA-AI-IOT/jetracer
+# Description: Hardware initialization, steering calibration, throttle control, 
+#              and game controller steering binding for Nvidia JetRacer.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. VEHICLE INITIALIZATION & HARDWARE BINDING
+# ------------------------------------------------------------------------------
+# Initialize the Nvidia JetRacer vehicle platform.
+# Depending on your build configuration, import NvidiaRacecar or WaveshareRacecar.
+
+from jetracer.nvidia_racecar import NvidiaRacecar
+# from jetracer.waveshare_racecar import WaveshareRacecar
+
+car = NvidiaRacecar()
+
+
+# ------------------------------------------------------------------------------
+# 2. STEERING & THROTTLE CONTROL EXAMPLES
+# ------------------------------------------------------------------------------
+# Steering and throttle values accept floating point values from -1.0 to 1.0.
+
+# Set steering to full left (-1.0), center (0.0), or full right (1.0)
+car.steering = 0.0
+
+# Set throttle (negative for reverse, positive for forward, 0.0 for stop)
+car.throttle = 0.0
+
+
+# ------------------------------------------------------------------------------
+# 3. HARDWARE CALIBRATION
+# ------------------------------------------------------------------------------
+# Fine-tune hardware offset parameters to account for servo horn alignment 
+# and ESC response windows.
+
+# Adjust steering offset if the car pulls left or right when set to 0.0
+car.steering_offset = 0.0
+
+# Set steering gain to adjust turn radius limits
+car.steering_gain = 1.0
+
+# Calibrate steering channel mapping (PCA9685 servo driver channel)
+car.steering_channel = 0
+
+# Set throttle gain to limit maximum speed/power delivery
+car.throttle_gain = 0.8
+
+
+# ------------------------------------------------------------------------------
+# 4. GAME CONTROLLER INTERFACE BINDING (IPYWIDGETS)
+# ------------------------------------------------------------------------------
+# Connect a USB or Bluetooth gamepad to dynamically control steering and throttle
+# via traitlet links in a Jupyter environment.
+
+import ipywidgets
+import traitlets
+from IPython.display import display
+
+# Create a gamepad widget instance (index 0 is the primary connected controller)
+controller = ipywidgets.Controller(index=0)
+
+display(controller)
+
+# Link controller axes directly to steering and throttle
+# Axis 0 is typically the left stick X-axis (steering)
+# Axis 1 or 3 is typically the stick Y-axis or trigger (throttle)
+steering_link = traitlets.dlink((controller.axes[0], 'value'), (car, 'steering'))
+throttle_link = traitlets.dlink((controller.axes[1], 'value'), (car, 'throttle'))
+
+# Optional: Invert throttle or apply scaling transformation if necessary
+# throttle_link = traitlets.dlink((controller.axes[1], 'value'), (car, 'throttle'), transform=lambda x: -x)
+
 ## Interactive regression Notebook
 
 ## Computer Vision & Interactive Regression Code
