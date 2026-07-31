@@ -94,6 +94,11 @@ Two complementary techniques address this:
 
 **b) Hysteresis on the control decision.** Filtering alone doesn't fully solve the problem — a signal that's sitting right near a threshold can still flicker back and forth across it, causing the servo to twitch between two wing angles. Hysteresis solves this by using **two separate thresholds instead of one**: the wing only moves to a "deployed" angle once acceleration exceeds an upper threshold, and only returns to neutral once it drops below a distinctly lower threshold. That dead-band gap between the two thresholds means a signal hovering near a single trigger point can't cause rapid back-and-forth switching — it has to clearly cross into the new state and clearly leave the old one before the wing responds again. In practice this looks like:
 
+### Track Layout
+
+For the jetracer to work and CNN model to work successfully blue tape is as track outlines to create contrast for model to pickup
+![Pictures](track.jpeg)
+
 # Milestone 2: Hardware Validation & PWM Calibration
  <iframe width="985" height="554" src="https://www.youtube.com/embed/oSRA-IN0WpY" title="Gautham N. K. Milestone 2" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
