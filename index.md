@@ -181,7 +181,7 @@ This milestone is the foundation for the future work — nothing further can be 
 ## interactive_regression.py
 
 
-### 1. Camera Initialization
+## 1. Camera Initialization
 from jetcam.csi_camera import CSICamera
 # from jetcam.usb_camera import USBCamera
 
@@ -190,7 +190,7 @@ camera = CSICamera(width=224, height=224)
 
 camera.running = True
 
-### 2. Task & Dataset Configuration
+## 2. Task & Dataset Configuration
 import torchvision.transforms as transforms
 from xy_dataset import XYDataset
 
