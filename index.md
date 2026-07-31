@@ -164,17 +164,19 @@ Testing computer vision models — testing different computer vision models to f
 
 This milestone is the foundation for the future work — nothing further can be done without the properly working hardware and the safety-first control switch.
 
+#Hardware flowcharts
+
 # Wiring Diagram 
 ![Wiring Diagram](CustomWiringDiagram.jpg)
 
-# Power Architecture Flow Chart
+## Power Architecture Flow Chart
 ![Flow Chart](PowerArchitecture.png
 )
 
-# Signal flow Flow Chart
+## Signal flow Flow Chart
 ![Flow Chart](SignalFlow.png)
 
-# Code
+## Code
 Here's where you'll put your code. The syntax below places it into a block of code. Follow the guide [here]([url](https://www.markdownguide.org/extended-syntax/)) to learn how to customize it to your project needs. 
 
 ```python
