@@ -180,33 +180,503 @@ This milestone is the foundation for the future work — nothing further can be 
 Here's where you'll put your code. The syntax below places it into a block of code. Follow the guide [here]([url](https://www.markdownguide.org/extended-syntax/)) to learn how to customize it to your project needs. 
 
 ```python
-void setup() {
-  // put your setup code here, to run once:
-  Serial.begin(9600);
-  Serial.println("Hello World!");
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Interactive Regression\n",
+    "\n",
+    "This notebook lets you:\n",
+    "1. Collect labeled images by clicking a target point on a live camera feed\n",
+    "2. Train a ResNet18 regression model to predict that (x, y) point\n",
+    "3. Watch the model's live predictions on the camera feed\n",
+    "\n",
+    "It's built for JetRacer / JetBot style setups using `jetcam`, but the camera cell is isolated so you can swap in any OpenCV-compatible source.\n",
+    "\n",
+    "**Requirements:** `torch`, `torchvision`, `ipywidgets`, `jupyter_clickable_image_widget`, `traitlets`, `jetcam` (or your own camera class), `Pillow`, `numpy`."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 1. Task definition\n",
+    "\n",
+    "Set `TASK` to a name for what you're training (e.g. `road_following`), and `CATEGORIES` to the list of target points you want the model to learn (usually just one, e.g. `apex`)."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import os\n",
+    "\n",
+    "TASK = 'road_following'\n",
+    "CATEGORIES = ['apex']\n",
+    "DATASETS = ['A', 'B']  # multiple datasets let you separate e.g. different tracks/lighting\n",
+    "\n",
+    "DATA_DIR = 'dataset_xy'\n",
+    "os.makedirs(DATA_DIR, exist_ok=True)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 2. Dataset class\n",
+    "\n",
+    "Each image filename encodes its (x, y) label, e.g. `xy_037_089_<uuid>.jpg` for x=37, y=89 (0-255 scale). This keeps the dataset self-contained on disk with no separate label file to keep in sync."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import glob\n",
+    "import uuid\n",
+    "import PIL.Image\n",
+    "import torch\n",
+    "import torch.utils.data\n",
+    "import torchvision.transforms as transforms\n",
+    "import numpy as np\n",
+    "\n",
+    "\n",
+    "def xy_uuid(x, y):\n",
+    "    return 'xy_%03d_%03d_%s' % (x * 50 + 50, y * 50 + 50, uuid.uuid1())\n",
+    "\n",
+    "\n",
+    "class XYDataset(torch.utils.data.Dataset):\n",
+    "\n",
+    "    def __init__(self, directory, categories, random_hflip=False):\n",
+    "        self.directory = directory\n",
+    "        self.categories = categories\n",
+    "        self.random_hflip = random_hflip\n",
+    "        self.refresh()\n",
+    "        self.color_jitter = transforms.ColorJitter(0.3, 0.3, 0.3, 0.3)\n",
+    "\n",
+    "    def __len__(self):\n",
+    "        return len(self.annotations)\n",
+    "\n",
+    "    def __getitem__(self, idx):\n",
+    "        ann = self.annotations[idx]\n",
+    "        image = PIL.Image.open(ann['image_path'])\n",
+    "        width, height = image.size\n",
+    "        x = 2.0 * (ann['x'] / width) - 1.0\n",
+    "        y = 2.0 * (ann['y'] / height) - 1.0\n",
+    "\n",
+    "        if self.random_hflip and float(np.random.random(1)) > 0.5:\n",
+    "            image = image.transpose(PIL.Image.FLIP_LEFT_RIGHT)\n",
+    "            x = -x\n",
+    "\n",
+    "        image = self.color_jitter(image)\n",
+    "        image = transforms.functional.resize(image, (224, 224))\n",
+    "        image = transforms.functional.to_tensor(image)\n",
+    "        image = image.numpy()[::-1].copy()\n",
+    "        image = torch.from_numpy(image)\n",
+    "        image = transforms.functional.normalize(\n",
+    "            image, [0.485, 0.456, 0.406], [0.229, 0.224, 0.225])\n",
+    "\n",
+    "        return image, ann['category_index'], torch.Tensor([x, y])\n",
+    "\n",
+    "    def _parse(self, path):\n",
+    "        basename = os.path.basename(path)\n",
+    "        items = basename.split('_')\n",
+    "        x = (float(int(items[1])) - 50.0) / 50.0\n",
+    "        y = (float(int(items[2])) - 50.0) / 50.0\n",
+    "        return x, y\n",
+    "\n",
+    "    def refresh(self):\n",
+    "        self.annotations = []\n",
+    "        for category in self.categories:\n",
+    "            category_dir = os.path.join(self.directory, category)\n",
+    "            os.makedirs(category_dir, exist_ok=True)\n",
+    "            for image_path in glob.glob(os.path.join(category_dir, '*.jpg')):\n",
+    "                x, y = self._parse(image_path)\n",
+    "                self.annotations.append({\n",
+    "                    'image_path': image_path,\n",
+    "                    'category_index': self.categories.index(category),\n",
+    "                    'x': (x + 1.0) / 2.0 * 224.0,\n",
+    "                    'y': (y + 1.0) / 2.0 * 224.0\n",
+    "                })\n",
+    "\n",
+    "    def save_entry(self, category, image, x, y):\n",
+    "        \"\"\"image: PIL.Image, x/y in pixel coords of that image\"\"\"\n",
+    "        category_dir = os.path.join(self.directory, category)\n",
+    "        os.makedirs(category_dir, exist_ok=True)\n",
+    "        width, height = image.size\n",
+    "        xn = 2.0 * (x / width) - 1.0\n",
+    "        yn = 2.0 * (y / height) - 1.0\n",
+    "        filename = xy_uuid(xn, yn) + '.jpg'\n",
+    "        image.save(os.path.join(category_dir, filename))\n",
+    "        self.refresh()\n",
+    "\n",
+    "\n",
+    "datasets = {}\n",
+    "for name in DATASETS:\n",
+    "    datasets[name] = XYDataset(DATA_DIR + '_' + name, CATEGORIES, random_hflip=True)\n",
+    "\n",
+    "print(\"{} datasets ready: {}\".format(len(datasets), list(datasets.keys())))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 3. Camera\n",
+    "\n",
+    "Uses `jetcam`'s CSI or USB camera. Swap this cell if your hardware differs -- the rest of the notebook only needs `camera.value` to be an `(H, W, 3)` uint8 BGR numpy array that updates continuously."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "CAMERA = 'csi'  # 'csi' or 'usb'\n",
+    "\n",
+    "if CAMERA == 'csi':\n",
+    "    from jetcam.csi_camera import CSICamera\n",
+    "    camera = CSICamera(width=224, height=224, capture_fps=65)\n",
+    "else:\n",
+    "    from jetcam.usb_camera import USBCamera\n",
+    "    camera = USBCamera(width=224, height=224, capture_fps=30)\n",
+    "\n",
+    "camera.running = True\n",
+    "print(\"camera created\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 4. Data collection widget\n",
+    "\n",
+    "Click anywhere on the live image to save that point as a labeled example for the current category/dataset."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import ipywidgets\n",
+    "import traitlets\n",
+    "from IPython.display import display\n",
+    "from jetcam.utils import bgr8_to_jpeg\n",
+    "from jupyter_clickable_image_widget import ClickableImageWidget\n",
+    "\n",
+    "dataset_widget = ipywidgets.Dropdown(options=DATASETS, description='dataset')\n",
+    "category_widget = ipywidgets.Dropdown(options=CATEGORIES, description='category')\n",
+    "count_widget = ipywidgets.IntText(description='count')\n",
+    "\n",
+    "camera_widget = ClickableImageWidget(width=224, height=224)\n",
+    "target_widget = ipywidgets.Image(width=224, height=224)\n",
+    "\n",
+    "\n",
+    "def get_dataset():\n",
+    "    return datasets[dataset_widget.value]\n",
+    "\n",
+    "\n",
+    "def update_count():\n",
+    "    count_widget.value = get_dataset().annotations.__len__()\n",
+    "\n",
+    "\n",
+    "def draw_target(image, x, y):\n",
+    "    import cv2\n",
+    "    image = image.copy()\n",
+    "    cv2.circle(image, (x, y), 8, (0, 255, 0), 3)\n",
+    "    return image\n",
+    "\n",
+    "\n",
+    "def save_snapshot(_, content, msg):\n",
+    "    if content['event'] != 'click':\n",
+    "        return\n",
+    "    data = content['eventData']\n",
+    "    x = data['offsetX']\n",
+    "    y = data['offsetY']\n",
+    "\n",
+    "    frame = camera.value\n",
+    "    pil_image = PIL.Image.fromarray(frame[:, :, ::-1])  # BGR -> RGB\n",
+    "    get_dataset().save_entry(category_widget.value, pil_image, x, y)\n",
+    "\n",
+    "    preview = draw_target(frame, x, y)\n",
+    "    target_widget.value = bgr8_to_jpeg(preview)\n",
+    "    update_count()\n",
+    "\n",
+    "\n",
+    "camera_widget.on_msg(save_snapshot)\n",
+    "\n",
+    "traitlets.dlink((camera, 'value'), (camera_widget, 'value'), transform=bgr8_to_jpeg)\n",
+    "\n",
+    "update_count()\n",
+    "\n",
+    "data_collection_widget = ipywidgets.VBox([\n",
+    "    ipywidgets.HBox([camera_widget, target_widget]),\n",
+    "    dataset_widget,\n",
+    "    category_widget,\n",
+    "    count_widget\n",
+    "])\n",
+    "\n",
+    "display(data_collection_widget)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 5. Model\n",
+    "\n",
+    "A ResNet18 backbone with its final layer replaced to regress `2 * len(CATEGORIES)` outputs (an x, y pair per category)."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import torch\n",
+    "import torchvision\n",
+    "\n",
+    "device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')\n",
+    "\n",
+    "output_dim = 2 * len(CATEGORIES)\n",
+    "\n",
+    "model = torchvision.models.resnet18(pretrained=True)\n",
+    "model.fc = torch.nn.Linear(512, output_dim)\n",
+    "model = model.to(device)\n",
+    "\n",
+    "model_save_button = ipywidgets.Button(description='save model')\n",
+    "model_load_button = ipywidgets.Button(description='load model')\n",
+    "model_path_widget = ipywidgets.Text(description='path', value='road_following_model.pth')\n",
+    "\n",
+    "\n",
+    "def load_model(_):\n",
+    "    model.load_state_dict(torch.load(model_path_widget.value, map_location=device))\n",
+    "\n",
+    "\n",
+    "def save_model(_):\n",
+    "    torch.save(model.state_dict(), model_path_widget.value)\n",
+    "\n",
+    "\n",
+    "model_load_button.on_click(load_model)\n",
+    "model_save_button.on_click(save_model)\n",
+    "\n",
+    "model_widget = ipywidgets.VBox([\n",
+    "    model_path_widget,\n",
+    "    ipywidgets.HBox([model_load_button, model_save_button])\n",
+    "])\n",
+    "\n",
+    "display(model_widget)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 6. Live demo\n",
+    "\n",
+    "Toggle this on at any time (even before training, or between epochs) to see the model's current predicted point overlaid on the live camera feed."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import threading\n",
+    "import time\n",
+    "import cv2\n",
+    "\n",
+    "state_widget = ipywidgets.ToggleButtons(options=['stop', 'live'], description='state', value='stop')\n",
+    "prediction_widget = ipywidgets.Image(width=224, height=224)\n",
+    "\n",
+    "\n",
+    "def preprocess(image):\n",
+    "    image = PIL.Image.fromarray(image[:, :, ::-1])  # BGR -> RGB\n",
+    "    image = transforms.functional.resize(image, (224, 224))\n",
+    "    image = transforms.functional.to_tensor(image)\n",
+    "    image = image.numpy()[::-1].copy()\n",
+    "    image = torch.from_numpy(image)\n",
+    "    image = transforms.functional.normalize(\n",
+    "        image, [0.485, 0.456, 0.406], [0.229, 0.224, 0.225])\n",
+    "    return image[None, ...]\n",
+    "\n",
+    "\n",
+    "def live(state_widget, model, camera, prediction_widget):\n",
+    "    while state_widget.value == 'live':\n",
+    "        image = camera.value\n",
+    "        data = preprocess(image).to(device).float()\n",
+    "        model.eval()\n",
+    "        with torch.no_grad():\n",
+    "            output = model(data).detach().cpu().numpy().flatten()\n",
+    "        category_index = CATEGORIES.index(category_widget.value)\n",
+    "        x = output[2 * category_index]\n",
+    "        y = output[2 * category_index + 1]\n",
+    "\n",
+    "        x = int((x / 2.0 + 0.5) * 224)\n",
+    "        y = int((y / 2.0 + 0.5) * 224)\n",
+    "\n",
+    "        preview = image.copy()\n",
+    "        cv2.circle(preview, (x, y), 8, (255, 0, 0), 3)\n",
+    "        prediction_widget.value = bgr8_to_jpeg(preview)\n",
+    "\n",
+    "\n",
+    "def start_live(change):\n",
+    "    if change['new'] == 'live':\n",
+    "        execute_thread = threading.Thread(target=live, args=(state_widget, model, camera, prediction_widget))\n",
+    "        execute_thread.start()\n",
+    "\n",
+    "\n",
+    "state_widget.observe(start_live, names='value')\n",
+    "\n",
+    "live_execution_widget = ipywidgets.VBox([\n",
+    "    prediction_widget,\n",
+    "    state_widget\n",
+    "])\n",
+    "\n",
+    "display(live_execution_widget)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 7. Training and evaluation\n",
+    "\n",
+    "Set the number of epochs and click **train**. The 'eval' setting on the same button runs a validation pass (no weight updates), which is useful for sanity-checking a model you just loaded."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "BATCH_SIZE = 8\n",
+    "\n",
+    "epochs_widget = ipywidgets.IntText(description='epochs', value=1)\n",
+    "eval_button = ipywidgets.Button(description='evaluate')\n",
+    "train_button = ipywidgets.Button(description='train')\n",
+    "loss_widget = ipywidgets.FloatText(description='loss')\n",
+    "progress_widget = ipywidgets.FloatProgress(min=0.0, max=1.0, description='progress')\n",
+    "\n",
+    "\n",
+    "def train_eval(is_training):\n",
+    "    global BATCH_SIZE, model, dataset, optimizer, epochs_widget\n",
+    "\n",
+    "    dataset = get_dataset()\n",
+    "    train_button.disabled = True\n",
+    "    eval_button.disabled = True\n",
+    "\n",
+    "    train_loader = torch.utils.data.DataLoader(\n",
+    "        dataset, batch_size=BATCH_SIZE, shuffle=True)\n",
+    "\n",
+    "    optimizer = torch.optim.Adam(model.parameters())\n",
+    "\n",
+    "    try:\n",
+    "        for epoch in range(epochs_widget.value):\n",
+    "            model.train() if is_training else model.eval()\n",
+    "            i = 0\n",
+    "            sum_loss = 0.0\n",
+    "            count = 0\n",
+    "            for images, category_idx, xy in iter(train_loader):\n",
+    "                images = images.to(device).float()\n",
+    "                xy = xy.to(device).float()\n",
+    "\n",
+    "                if is_training:\n",
+    "                    optimizer.zero_grad()\n",
+    "\n",
+    "                outputs = model(images)\n",
+    "                loss = 0.0\n",
+    "                for batch_idx, cat_idx in enumerate(list(category_idx.flatten())):\n",
+    "                    loss += torch.mean((outputs[batch_idx][2 * cat_idx:2 * cat_idx + 2] - xy[batch_idx]) ** 2)\n",
+    "                loss /= len(category_idx)\n",
+    "\n",
+    "                if is_training:\n",
+    "                    loss.backward()\n",
+    "                    optimizer.step()\n",
+    "\n",
+    "                count += len(category_idx)\n",
+    "                i += len(category_idx)\n",
+    "                sum_loss += float(loss)\n",
+    "                progress_widget.value = i / len(dataset)\n",
+    "                loss_widget.value = sum_loss / count\n",
+    "    finally:\n",
+    "        model = model.eval()\n",
+    "        train_button.disabled = False\n",
+    "        eval_button.disabled = False\n",
+    "\n",
+    "\n",
+    "train_button.on_click(lambda c: train_eval(is_training=True))\n",
+    "eval_button.on_click(lambda c: train_eval(is_training=False))\n",
+    "\n",
+    "train_eval_widget = ipywidgets.VBox([\n",
+    "    epochs_widget,\n",
+    "    progress_widget,\n",
+    "    loss_widget,\n",
+    "    ipywidgets.HBox([train_button, eval_button])\n",
+    "])\n",
+    "\n",
+    "display(train_eval_widget)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 8. All-in-one view (optional)\n",
+    "\n",
+    "Run this last to see everything -- data collection, model save/load, training, and live demo -- stacked in one panel."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "all_widget = ipywidgets.VBox([\n",
+    "    ipywidgets.HBox([data_collection_widget, live_execution_widget]),\n",
+    "    train_eval_widget,\n",
+    "    model_widget\n",
+    "])\n",
+    "\n",
+    "display(all_widget)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# When you're done, release the camera so other notebooks can use it:\n",
+    "# camera.running = False\n",
+    "# camera.cap.release()"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "name": "python",
+   "version": "3.6"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 4
 }
-
-void loop() {
-  // put your main code here, to run repeatedly:
-
-}
-
-https://www.youtube.com/watch?v=JIqICeoYuvM
-
-# Bill of Materials
-Here's where you'll list the parts in your project. To add more rows, just copy and paste the example rows below.
-Don't forget to place the link of where to buy each component inside the quotation marks in the corresponding row after href =. Follow the guide [here]([url](https://www.markdownguide.org/extended-syntax/)) to learn how to customize this to your project needs. 
-
-| **Part** | **Note** | **Price** | **Link** |
-|:--:|:--:|:--:|:--:|
-| Item Name | What the item is used for | $Price | <a href="https://www.amazon.com/Arduino-A000066-ARDUINO-UNO-R3/dp/B008GRTSV6/"> Link </a> |
-| Item Name | What the item is used for | $Price | <a href="https://www.amazon.com/Arduino-A000066-ARDUINO-UNO-R3/dp/B008GRTSV6/"> Link </a> |
-| Item Name | What the item is used for | $Price | <a href="https://www.amazon.com/Arduino-A000066-ARDUINO-UNO-R3/dp/B008GRTSV6/"> Link </a> |
-
-# Other Resources/Examples
-One of the best parts about Github is that you can view how other people set up their own work. Here are some past BSE portfolios that are awesome examples. You can view how they set up their portfolio, and you can view their index.md files to understand how they implemented different portfolio components.
-- [Example 1](https://trashytuber.github.io/YimingJiaBlueStamp/)
-- [Example 2](https://sviatil0.github.io/Sviatoslav_BSE/)
-- [Example 3](https://arneshkumar.github.io/arneshbluestamp/)
-
-To watch the BSE tutorial on how to create a portfolio, click here.
