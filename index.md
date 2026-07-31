@@ -504,6 +504,9 @@ def train_eval(is_training):
 ```
 ---
 
+## Autonomous Road Following & Vision Pipeline (road_following.py)
+Implements real-time target point regression using a ResNet-18 backbone. Converts predicted steering coordinates into PWM servo commands on Jetson Orin Nano hardware.
+
 ```Python
 import cv2
 import torchvision.transforms as transforms
