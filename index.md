@@ -179,8 +179,8 @@ This milestone is the foundation for the future work — nothing further can be 
 
 # Different applicable notebooks for training
 
-## Expandned CNN Pipeline
-![Flow Chart](CNNPipeline.png)
+## Expandned CNN Pipeline         ## Wiring Flowchart
+![Flow Chart](CNNPipeline.png)    ![Flow Chart](WiringFlochart.png)
 
 ##  Basic Motion Notebook
 Hardware initialization with steering and throttle calibration
