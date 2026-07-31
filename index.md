@@ -625,3 +625,25 @@ camera.observe(update, names='value')
 # -------------------------------------------------------------
 ```
 ---
+-------------------------------------------------------------
+Part	Role in the build	Price
+LaTrax Rally 1/18 4WD RTR	Chassis, motor, ESC, steering servo, RC transmitter/receiver	$119.95 
+RaceTraxRC
+
+NVIDIA Jetson Orin Nano Super Dev Kit	Onboard compute — runs the CNN	~$399 (NVIDIA raised prices on all Jetson modules and dev kits by up to 101% as of July 2026; 
+CNX Software
+ it was $249 before that)
+Adafruit PCA9685 16-channel PWM/servo driver	Lets the Jetson generate precise servo/ESC PWM signals over I2C	~$17.95 ($14.65–$22 depending on retailer)
+Pololu 4-Channel RC Servo Multiplexer (assembled)	Switches steering/throttle between the CNN and the RC receiver	$17.95 
+pololu
+ (direct from Pololu)
+CSI camera (Raspberry Pi Camera Module 2, or Arducam IMX219 for Jetson)	Vision input for the CNN	$18–$28
+3S LiPo battery (for the Jetson + electronics)	Dedicated stable power for the compute board	~$20–$30
+LiPo balance charger	Charges the 3S battery safely	~$20–$25
+5V/3A (or higher) UBEC / buck converter	Steps 3S LiPo voltage down to safely power the Jetson	~$8–$12
+microSD card, 64–128GB (U3/A2 rated)	Jetson boot/OS storage	~$10–$15
+MPU-6050 IMU module	Feeds your active rear-wing hysteresis controller	~$12.90 
+DigiKey
+ (name-brand); ~$5–$8 for generic GY-521 boards
+Micro servo (for the active rear wing)	Actuates the wing angle	~$8–$15
+Jumper wires, perfboard/breakout, standoffs, zip ties	General wiring and mounting	~$15–$20 total
