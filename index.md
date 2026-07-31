@@ -625,25 +625,40 @@ camera.observe(update, names='value')
 # -------------------------------------------------------------
 ```
 ---
--------------------------------------------------------------
-Part	Role in the build	Price
-LaTrax Rally 1/18 4WD RTR	Chassis, motor, ESC, steering servo, RC transmitter/receiver	$119.95 
-RaceTraxRC
 
-NVIDIA Jetson Orin Nano Super Dev Kit	Onboard compute — runs the CNN	~$399 (NVIDIA raised prices on all Jetson modules and dev kits by up to 101% as of July 2026; 
-CNX Software
- it was $249 before that)
-Adafruit PCA9685 16-channel PWM/servo driver	Lets the Jetson generate precise servo/ESC PWM signals over I2C	~$17.95 ($14.65–$22 depending on retailer)
-Pololu 4-Channel RC Servo Multiplexer (assembled)	Switches steering/throttle between the CNN and the RC receiver	$17.95 
-pololu
- (direct from Pololu)
-CSI camera (Raspberry Pi Camera Module 2, or Arducam IMX219 for Jetson)	Vision input for the CNN	$18–$28
-3S LiPo battery (for the Jetson + electronics)	Dedicated stable power for the compute board	~$20–$30
-LiPo balance charger	Charges the 3S battery safely	~$20–$25
-5V/3A (or higher) UBEC / buck converter	Steps 3S LiPo voltage down to safely power the Jetson	~$8–$12
-microSD card, 64–128GB (U3/A2 rated)	Jetson boot/OS storage	~$10–$15
-MPU-6050 IMU module	Feeds your active rear-wing hysteresis controller	~$12.90 
-DigiKey
- (name-brand); ~$5–$8 for generic GY-521 boards
-Micro servo (for the active rear wing)	Actuates the wing angle	~$8–$15
-Jumper wires, perfboard/breakout, standoffs, zip ties	General wiring and mounting	~$15–$20 total
+# JetRacer Project Parts List & Current Pricing (July 2026)
+
+This repository contains the comprehensive, itemized parts list for building a custom JetRacer autonomous RC car. 
+
+> ⚠️ **Important Cost Note:** NVIDIA enacted a massive price hike across all Jetson modules and dev kits as of July 2026. The Jetson Orin Nano Super Dev Kit rose from $249 to ~$399, making the compute board the single largest line item in this build.
+
+---
+
+### Bill of Materials (BOM)
+
+| Part | Role in the Build | Price (USD) | Source / Notes |
+| :--- | :--- | :--- | :--- |
+| **LaTrax Rally 1/18 4WD RTR** | Chassis, motor, ESC, steering servo, RC transmitter/receiver | $119.95 | RaceTraxRC / Traxxas dealers. Includes baseline electronics. |
+| **NVIDIA Jetson Orin Nano Super Dev Kit** | Onboard compute — runs the Convolutional Neural Network (CNN) | ~$399.00 | Authorized NVIDIA distributors. Reflects July 2026 price adjustment. |
+| **Adafruit PCA9685 16-Channel PWM Driver** | Generates precise servo/ESC PWM signals over I2C from the Jetson | ~$17.95 | Adafruit or major component retailers ($14.65–$22.00 variance). |
+| **Pololu 4-Channel RC Servo Multiplexer** | Assembled board to switch controls between the CNN and manual RC | $17.95 | Direct from Pololu. |
+| **CSI Camera** | Vision input for the CNN (Raspberry Pi Camera Mod 2 or Arducam IMX219) | $18.00 - $28.00 | Ensure compatibility with Jetson Nano CSI ports. |
+| **3S LiPo Battery** | Dedicated stable power supply for the Jetson board and electronics | ~$20.00 - $30.00 | Do not share this with the main drive motor to avoid power drops. |
+| **LiPo Balance Charger** | Safety-rated charger for the 3S LiPo battery | ~$20.00 - $25.00 | Mandatory for LiPo battery safety. |
+| **5V/3A UBEC / Buck Converter** | Steps down 3S LiPo voltage to a stable 5V for the Jetson | ~$8.00 - $12.00 | High-efficiency buck converter recommended. |
+| **MicroSD Card (64GB–128GB)** | Jetson boot drive and OS storage (U3/A2 rated) | ~$10.00 - $15.00 | High read/write speed required for OS stability. |
+| **MPU-6050 IMU Module** | Feeds telemetry data to active rear-wing hysteresis controller | ~$12.90 | DigiKey (Name-brand); generic GY-521 boards run ~$5–$8. |
+| **Micro Servo** | Physical actuator to change the active rear wing angle | ~$8.00 - $15.00 | Standard metal-gear micro servo. |
+| **Hardware & Consumables** | Jumper wires, perfboard/breakout, standoffs, zip ties | ~$15.00 - $20.00 | General assembly and structural mounting wire/hardware. |
+
+### Project Budget Estimates
+* **Estimated Minimum Total:** ~$650.00
+* **Estimated Maximum Total:** ~$700.00
+*(Totals depend on exact choices for camera, battery, and minor hardware components)*
+
+---
+
+### Critical Build Notes
+1. **All-In-One Chassis:** The LaTrax Rally kit is an "Ready-To-Run" (RTR) package. It already includes its own Electronic Speed Controller (ESC), drive motor, steering servo, and 2.4GHz transmitter/receiver. You do not need to purchase these components separately.
+2. **Component Reusability:** If you already own a high-speed MicroSD card, a LiPo balance charger, or standard micro servos from previous robotics/RC projects, you can easily shave up to $60.00 off the project total.
+
