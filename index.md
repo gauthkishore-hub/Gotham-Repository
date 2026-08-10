@@ -99,6 +99,10 @@ Two complementary techniques address this:
 For the jetracer to work and CNN model to work successfully blue tape is as track outlines to create contrast for model to pickup
 ![Pictures](track.jpeg)
 
+### Final Iteration 
+
+Remounted the battery that powers all power electronics except the jetson orin and the servo driver to leave space for higher capacity battery to power jetson.
+![Pictures]()
 
 # Milestone 2: Hardware Validation & PWM Calibration
  <iframe width="985" height="554" src="https://www.youtube.com/embed/oSRA-IN0WpY" title="Gautham N. K. Milestone 2" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
