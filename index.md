@@ -69,30 +69,67 @@ Unlike a lot of CNN applications where inference can run offline, our model has 
 
 ---
 
-## New Addition: Active Rear Wing with IMU-Based Stabilization
+## New Addition: Hybrid Quantum-Classical Modulation Layer
 
 ### 1. Motivation
 
-At higher test speeds, the chassis experiences small pitch and roll oscillations from track imperfections, cornering load transfer, and motor vibration — all of which subtly change how much the camera's field of view "bounces" frame to frame, and can also unsettle rear traction going into corners. To address this, we're adding a **servo-actuated active rear wing** that adjusts its angle of attack in real time based on the vehicle's measured dynamics, rather than sitting at a fixed angle like a static wing. The goal is added rear-end stability under braking and cornering load, using the same kind of active-aero concept found in full-scale race cars, scaled down to our platform.
+The CNN described above solves steering — it was trained exclusively on human-labeled `(x, y)` target points, so it has no learned signal for throttle whatsoever. In the current build, throttle is either a fixed constant or set manually through the radio transmitter, which means the vehicle's speed carries zero information about the actual difficulty of the section of track it's in: it drives a sharp hairpin and a long straightaway at the same commanded speed unless a human intervenes. This addition targets that specific gap. Rather than retraining the CNN to output a third value (which would require an entirely new labeled dataset with speed ground truth), we introduce a second, independent model — a small variational quantum circuit (VQC) built with Qiskit — that reads a summary of recent driving conditions and outputs a throttle modulation signal. It runs live, on the Jetson, while the car is driving autonomously, but on a separate and much slower cadence than the CNN, for reasons explained in Section 8.
 
-### 2. Sensing: Accelerometer / IMU Placement
+### 2. Why the Circuit Can't Sit Inside the CNN's Control Loop
 
-A small IMU (accelerometer + gyroscope) is mounted near the vehicle's center of mass, oriented to capture:
+It's worth being precise about what Qiskit is actually doing on this hardware, since it shapes every design decision below. Without access to real IBM quantum hardware, Qiskit's circuits execute as **classical simulations** — every "quantum" operation is matrix multiplication carried out on the Jetson's own CPU. There is no computational speedup from using a quantum circuit here; if anything, circuit simulation is slower than an equivalent classical operation, since the simulator prioritizes numerical correctness over throughput.
 
-- **Longitudinal acceleration** — braking and throttle events, which the wing can respond to by increasing angle under hard braking (added rear downforce/drag) and flattening under acceleration (reduced drag).
-- **Lateral acceleration** — cornering load, letting the wing add a modest angle increase through hard corners for rear grip.
+Benchmarked on the Jetson's ARM CPU, a small (4-6 qubit) circuit — including transpilation and parameter binding — costs roughly **50-300ms per forward pass**, growing quickly with added qubits or circuit depth. The CNN's steering loop, by contrast, has to complete a full capture-inference-servo cycle within **33-100ms** to stay reactive at driving speed (Section 8 of the CNN Deep Dive). A quantum circuit simply cannot be inserted into that per-frame path without introducing visible steering lag. This is why the VQC is architected as a second, slower loop rather than a replacement for any part of the CNN.
 
-### 3. The Core Problem: Raw IMU Data Is Noisy
+### 3. Input Representation — the Context Vector
 
-Raw accelerometer output is inherently jittery — vibration from the motor, chassis flex, and the foam tires' own compliance all inject high-frequency noise into the signal that has nothing to do with the vehicle's actual dynamic state. If the wing's servo were commanded directly off raw accelerometer readings, it would chatter constantly — reacting to noise spikes rather than genuine acceleration events — leading to premature servo wear and an unstable, twitchy wing that could do more harm than good aerodynamically.
+Instead of a single camera frame, the VQC's input is a small hand-engineered feature vector summarizing the *last several seconds* of driving, refreshed roughly once per second:
 
-### 4. Noise Reduction Strategy
+- **Recent curvature** — derived from the variance of the CNN's predicted `x`-coordinate over the last N frames; a straightaway produces near-zero variance, a chicane produces high variance.
+- **Prediction confidence proxy** — how close the CNN's predicted target point has been sitting to the edges of the frame versus the center, as a rough stand-in for how "in control" the current view is.
+- **Recent steering correction magnitude** — the average absolute servo delta applied over the buffer window, capturing how hard the controller has had to work.
+- **Trend** — the derivative (rate of change) of curvature across the buffer, distinguishing "entering a turn" from "exiting one."
 
-Two complementary techniques address this:
+These four values are rescaled to the `[0, π]` range expected by the encoding layer described next.
 
-**a) Low-pass filtering.** Before any control decision is made, raw accelerometer samples pass through a low-pass filter (a simple moving average or an exponential/complementary filter blended with the gyroscope), attenuating the high-frequency vibration noise while preserving the slower, real dynamic trends we actually care about (a genuine braking or cornering event happens over hundreds of milliseconds, not the sub-millisecond timescale of vibration noise).
+### 4. Encoding Layer — Loading Classical Data onto Qubits
 
-**b) Hysteresis on the control decision.** Filtering alone doesn't fully solve the problem — a signal that's sitting right near a threshold can still flicker back and forth across it, causing the servo to twitch between two wing angles. Hysteresis solves this by using **two separate thresholds instead of one**: the wing only moves to a "deployed" angle once acceleration exceeds an upper threshold, and only returns to neutral once it drops below a distinctly lower threshold. That dead-band gap between the two thresholds means a signal hovering near a single trigger point can't cause rapid back-and-forth switching — it has to clearly cross into the new state and clearly leave the old one before the wing responds again. In practice this looks like:
+Each of the four context features is mapped onto its own qubit using a `Ry` rotation gate: `Ry(f_i)` rotates qubit `i` by an angle proportional to feature `f_i`. All four qubits start in the reference state `|0⟩`; after this layer, each independently encodes one scalar from the context vector as a point on its Bloch sphere. This step, called **angle encoding**, is purely a data-loading operation — no interaction between qubits has happened yet.
+
+### 5. Entangling Layer — Modeling Feature Interaction
+
+A chain of `CNOT` (controlled-NOT) gates is applied next: q0 controls q1, q1 controls q2, q2 controls q3. Because each qubit is already in superposition from the encoding step, this entangles them — the four-qubit system becomes a single joint state that can no longer be decomposed into independent per-qubit descriptions. Practically, this is the mechanism that lets the circuit represent *combinations* of context features rather than treating them independently — e.g., "high curvature and high recent correction" can map to a different output than either factor alone would under a simple weighted sum.
+
+### 6. Variational Layer — the Trainable Parameters
+
+A second round of rotation gates, `Rz(θ_0)` through `Rz(θ_3)`, is applied — but here the angles are **not** derived from the input data. They are free parameters, initialized randomly and updated during offline training, functionally equivalent to weights in a classical dense layer. This is the "variational" in VQC: the trainable component is the parameter set `θ`, optimized to make the circuit's output match desired throttle behavior, not any deeper quantum property of the circuit.
+
+### 7. Measurement Layer — Extracting a Classical Signal
+
+The circuit's final step reads out an **expectation value** ⟨Z⟩ for each qubit — a real number between -1 and 1 — via Qiskit's `Estimator` primitive. On physical quantum hardware this would require running the circuit repeatedly and averaging measurement outcomes ("shots"); Aer's local simulator instead computes the expectation value directly from the full statevector, which is part of why local simulation, despite being slow relative to classical layers, is at least exact rather than approximate.
+
+Two of the four resulting values are rescaled and used directly: one as a **steering bias correction** (a small additive adjustment layered on top of the CNN's PD steering output), and one as a **throttle multiplier** (scaling the base commanded speed up on straightaways and down through detected turns).
+
+### 8. Training Pipeline
+
+- **Where it happens:** entirely offline, in the notebook — never on the car while driving.
+- **Loss function:** Mean Squared Error between the circuit's throttle-multiplier output and a target multiplier derived from recorded human driving sessions (higher speed on low-curvature stretches, reduced speed approaching high-curvature stretches).
+- **Gradient computation:** quantum circuits aren't differentiable in the standard autograd sense, since measurement is probabilistic. Qiskit instead uses the **parameter-shift rule** — each `θ_i` is evaluated at `θ_i + π/2` and `θ_i - π/2`, and the gradient is proportional to the difference between the two. This is exact (not approximate) for `Ry`/`Rz` gates, but means each gradient step costs roughly 2× the number of parameters in circuit evaluations.
+- **Optimizer:** the circuit is wrapped with Qiskit's `TorchConnector`, which lets PyTorch's Adam optimizer treat `θ_0...θ_3` as an ordinary trainable tensor, with parameter-shift gradients computed underneath.
+
+### 9. Real-Time Deployment — the Two-Loop Architecture
+
+The deployed system runs two loops at deliberately different rates:
+
+| Loop | Rate | Job |
+|---|---|---|
+| Fast loop (unchanged) | 10-30 Hz | Camera → CNN → `(x,y)` → PD steering controller → servo |
+| Slow loop (new) | 0.5-2 Hz | Context buffer → Qiskit VQC (Aer, Jetson CPU) → steering bias + throttle multiplier |
+
+Only the trained VQC's **forward pass** runs live — no parameter-shift evaluations, no optimizer steps. That's what makes the 0.5-2 Hz rate achievable at all: it's a single matrix-algebra evaluation of a fixed, already-trained 4-qubit circuit, not a training step. The slow loop writes its two outputs to a shared variable that the fast loop reads every frame as an adjustable gain, so the CNN's steering path is never blocked waiting on the quantum circuit.
+
+**What this addition does and does not claim:** the CNN remains the sole source of the steering decision, unchanged from Milestone 3. The VQC genuinely executes live on the Jetson while the car drives autonomously, but at a cadence matched to what a simulated quantum circuit can actually deliver on this hardware — not at frame rate, and not as a quantum performance advantage over an equivalent classical layer. Its contribution is architectural: it gives throttle, previously a fixed constant with zero adaptive signal, a live input for the first time.
+
 
 ### Track Layout
 
